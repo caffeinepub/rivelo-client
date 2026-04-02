@@ -176,10 +176,11 @@ function CollapsedLeftSidebar({
       <button
         type="button"
         onClick={onExpand}
-        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0"
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
         style={{
           background: "oklch(var(--brand) / 0.15)",
           color: "oklch(var(--brand))",
+          fontWeight: 700,
         }}
         title="Expand sidebar"
       >
@@ -188,13 +189,11 @@ function CollapsedLeftSidebar({
       {/* New chat */}
       <button
         type="button"
-        data-ocid="sidebar.new_chat.button"
         onClick={onNewChat}
-        className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+        className="w-8 h-8 rounded-lg flex items-center justify-center"
         style={{
           background: "oklch(var(--surface-2))",
           color: "oklch(var(--muted-foreground))",
-          border: "1px solid oklch(var(--border))",
         }}
         title="New chat"
       >
@@ -529,7 +528,10 @@ export default function MainApp({ onLogout }: MainAppProps) {
   // Settings page
   if (showSettings) {
     return (
-      <div className="h-screen flex flex-col overflow-hidden">
+      <div
+        className="flex flex-col overflow-hidden"
+        style={{ height: "100dvh" }}
+      >
         <SettingsPage
           onBack={() => setShowSettings(false)}
           onLogout={() => {
@@ -561,8 +563,11 @@ export default function MainApp({ onLogout }: MainAppProps) {
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden"
-      style={{ background: "oklch(var(--surface-0))" }}
+      className="flex flex-col overflow-hidden"
+      style={{
+        background: "oklch(var(--surface-0))",
+        height: "100dvh",
+      }}
     >
       {/* Desktop layout */}
       <div className="hidden lg:flex flex-1 overflow-hidden">
@@ -792,9 +797,12 @@ export default function MainApp({ onLogout }: MainAppProps) {
         )}
       </div>
 
-      {/* Mobile layout */}
-      <div className="flex lg:hidden flex-col flex-1 overflow-hidden relative">
-        {/* Mobile top bar */}
+      {/* Mobile layout — fixed to dvh, no page-level scroll */}
+      <div
+        className="flex lg:hidden flex-col overflow-hidden relative"
+        style={{ flex: 1, minHeight: 0 }}
+      >
+        {/* Mobile top bar — always visible (shrink-0 ensures it never collapses) */}
         <div
           className="flex items-center gap-2 px-3 py-2.5 shrink-0"
           style={{
@@ -882,8 +890,11 @@ export default function MainApp({ onLogout }: MainAppProps) {
           )}
         </AnimatePresence>
 
-        {/* Mobile content area */}
-        <div className="flex-1 overflow-hidden">
+        {/* Mobile content area — takes all remaining space, scrolls internally */}
+        <div
+          className="shrink-0 overflow-hidden"
+          style={{ flex: 1, minHeight: 0 }}
+        >
           {mobileTab === "chat" && (
             <ChatArea
               {...chatAreaProps}
@@ -933,12 +944,13 @@ export default function MainApp({ onLogout }: MainAppProps) {
           )}
         </div>
 
-        {/* Mobile bottom tab bar */}
+        {/* Mobile bottom tab bar — always visible (shrink-0 prevents collapsing) */}
         <div
-          className="shrink-0 pb-safe"
+          className="shrink-0"
           style={{
             background: "oklch(var(--surface-1))",
             borderTop: "1px solid oklch(var(--border))",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
           }}
         >
           <div className="flex">
