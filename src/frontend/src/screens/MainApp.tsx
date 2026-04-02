@@ -1,4 +1,4 @@
-import { Menu, Settings, X } from "lucide-react";
+import { Layers, Menu, Settings, SlidersHorizontal, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import {
 import type { OpenRouterModel } from "../lib/openrouter";
 
 type MobileTab = "chat" | "explore" | "settings";
+type RightTab = "models" | "params";
 
 interface MainAppProps {
   onLogout: () => void;
@@ -35,6 +36,7 @@ export default function MainApp({ onLogout }: MainAppProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [detailModel, setDetailModel] = useState<OpenRouterModel | null>(null);
+  const [rightTab, setRightTab] = useState<RightTab>("models");
 
   const {
     models,
@@ -215,7 +217,10 @@ export default function MainApp({ onLogout }: MainAppProps) {
             onDeleteChat={handleDeleteChat}
             onSelectModel={handleSelectModel}
             onRefetchModels={refetchModels}
-            onViewModelDetail={(m) => setDetailModel(m)}
+            onViewModelDetail={(m) => {
+              setDetailModel(m);
+              setRightTab("models");
+            }}
           />
         </div>
 
@@ -237,43 +242,115 @@ export default function MainApp({ onLogout }: MainAppProps) {
           />
         </div>
 
-        {/* Right panel or model detail */}
+        {/* Right panel — tabbed: Models | Params */}
         <div
-          className="w-72 shrink-0 overflow-hidden"
+          className="w-72 shrink-0 overflow-hidden flex flex-col"
           style={{ borderLeft: "1px solid oklch(var(--border))" }}
         >
-          <AnimatePresence mode="wait">
-            {detailModel ? (
-              <motion.div
-                key="model-detail"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.2 }}
-                className="h-full"
+          {/* Tab header — only show when no detail model open */}
+          {!detailModel && (
+            <div
+              className="flex shrink-0"
+              style={{
+                borderBottom: "1px solid oklch(var(--border))",
+                background: "oklch(var(--surface-1))",
+              }}
+            >
+              <button
+                type="button"
+                data-ocid="right.models.tab"
+                onClick={() => setRightTab("models")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color:
+                    rightTab === "models"
+                      ? "oklch(var(--brand))"
+                      : "oklch(var(--muted-foreground))",
+                  borderBottom:
+                    rightTab === "models"
+                      ? "2px solid oklch(var(--brand))"
+                      : "2px solid transparent",
+                }}
               >
-                <ModelCard
-                  model={detailModel}
-                  onClose={() => setDetailModel(null)}
-                  onSelectModel={(id) => {
-                    handleSelectModel(id);
-                    setDetailModel(null);
-                  }}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="right-panel"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="h-full"
+                <Layers className="w-3.5 h-3.5" />
+                Models
+              </button>
+              <button
+                type="button"
+                data-ocid="right.params.tab"
+                onClick={() => setRightTab("params")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color:
+                    rightTab === "params"
+                      ? "oklch(var(--brand))"
+                      : "oklch(var(--muted-foreground))",
+                  borderBottom:
+                    rightTab === "params"
+                      ? "2px solid oklch(var(--brand))"
+                      : "2px solid transparent",
+                }}
               >
-                <RightPanel selectedModel={selectedModel} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Params
+              </button>
+            </div>
+          )}
+
+          {/* Tab content */}
+          <div className="flex-1 overflow-hidden">
+            <AnimatePresence mode="wait">
+              {detailModel ? (
+                <motion.div
+                  key="model-detail"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <ModelCard
+                    model={detailModel}
+                    onClose={() => setDetailModel(null)}
+                    onSelectModel={(id) => {
+                      handleSelectModel(id);
+                      setDetailModel(null);
+                    }}
+                  />
+                </motion.div>
+              ) : rightTab === "models" ? (
+                <motion.div
+                  key="models-tab"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full"
+                >
+                  <ModelExplorer
+                    models={models}
+                    loading={modelsLoading}
+                    error={modelsError}
+                    selectedModel={selectedModel}
+                    onSelectModel={handleSelectModel}
+                    onRefetch={refetchModels}
+                    onViewModelDetail={(m) => setDetailModel(m)}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="params-tab"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full"
+                >
+                  <RightPanel selectedModel={selectedModel} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 

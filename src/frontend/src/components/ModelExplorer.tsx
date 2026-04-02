@@ -327,7 +327,7 @@ function ModelRow({
               e.stopPropagation();
               onViewDetail(model);
             }}
-            className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1 rounded transition-opacity"
             title="View details"
           >
             <ChevronRight
