@@ -21,6 +21,31 @@ interface UseChatOptions {
   perChatSystemPrompt?: string;
 }
 
+function extractThinkContent(raw: string): {
+  thinking: string;
+  main: string;
+  isThinking: boolean;
+} {
+  const openIdx = raw.indexOf("<think>");
+  if (openIdx === -1) {
+    return { thinking: "", main: raw, isThinking: false };
+  }
+  const closeIdx = raw.indexOf("</think>");
+  if (closeIdx === -1) {
+    // Still inside <think> block
+    return {
+      thinking: raw.slice(openIdx + 7),
+      main: "",
+      isThinking: true,
+    };
+  }
+  return {
+    thinking: raw.slice(openIdx + 7, closeIdx),
+    main: raw.slice(closeIdx + 8).trim(),
+    isThinking: false,
+  };
+}
+
 export function useChat({
   chatId,
   model,
@@ -28,9 +53,12 @@ export function useChat({
 }: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [thinkingContent, setThinkingContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef(false);
+  const streamStartedRef = useRef(false);
 
   const loadMessages = useCallback(async (cId: string) => {
     try {
@@ -59,6 +87,7 @@ export function useChat({
 
       setError(null);
       abortRef.current = false;
+      streamStartedRef.current = false;
 
       // Save user message
       const userMsg = await addMessage(chatId, "user", userInput.trim());
@@ -68,11 +97,12 @@ export function useChat({
       const assistantMsg = await addMessage(chatId, "assistant", "");
       setMessages((prev) => [...prev, assistantMsg]);
       setIsStreaming(true);
+      setIsThinking(true);
       setStreamingContent("");
+      setThinkingContent("");
 
       // Build messages array for API
       const history = await getMessages(chatId);
-      // Exclude the empty assistant placeholder and the new user message from history
       const historyMsgs: ChatMessage[] = history
         .filter(
           (m) =>
@@ -106,7 +136,7 @@ export function useChat({
       if (!apiKey) {
         setError("No API key configured. Please add an API key in Settings.");
         setIsStreaming(false);
-        // Remove empty assistant placeholder
+        setIsThinking(false);
         setMessages((prev) => prev.filter((m) => m.id !== assistantMsg.id));
         return;
       }
@@ -124,21 +154,35 @@ export function useChat({
           },
           (chunk) => {
             if (abortRef.current) return;
+            streamStartedRef.current = true;
             accumulatedContent += chunk;
-            setStreamingContent(accumulatedContent);
+
+            // Parse think blocks
+            const {
+              thinking,
+              main,
+              isThinking: stillThinking,
+            } = extractThinkContent(accumulatedContent);
+            setThinkingContent(thinking);
+            setIsThinking(stillThinking);
+            setStreamingContent(
+              main || (stillThinking ? "" : accumulatedContent),
+            );
           },
           async () => {
             if (abortRef.current) return;
-            // Save final content
-            await updateMessage(assistantMsg.id, accumulatedContent);
+            // Extract final content without think tags
+            const { main } = extractThinkContent(accumulatedContent);
+            const finalContent = main || accumulatedContent;
+            await updateMessage(assistantMsg.id, finalContent);
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantMsg.id
-                  ? { ...m, content: accumulatedContent }
-                  : m,
+                m.id === assistantMsg.id ? { ...m, content: finalContent } : m,
               ),
             );
             setStreamingContent("");
+            setThinkingContent("");
+            setIsThinking(false);
             setIsStreaming(false);
           },
           async (status, message) => {
@@ -158,6 +202,8 @@ export function useChat({
               ),
             );
             setStreamingContent("");
+            setThinkingContent("");
+            setIsThinking(false);
             setIsStreaming(false);
             setError(message);
           },
@@ -172,14 +218,18 @@ export function useChat({
   const stopStreaming = useCallback(() => {
     abortRef.current = true;
     setIsStreaming(false);
+    setIsThinking(false);
     setStreamingContent("");
+    setThinkingContent("");
   }, []);
 
   return {
     messages,
     setMessages,
     isStreaming,
+    isThinking,
     streamingContent,
+    thinkingContent,
     error,
     setError,
     sendMessage,

@@ -1,10 +1,20 @@
-import { Bot, User } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Copy, Play, User } from "lucide-react";
+import { useCallback, useState } from "react";
 import type { Message } from "../lib/db";
+import SandboxModal from "./SandboxModal";
+
+interface CodeBlock {
+  language: string;
+  code: string;
+}
 
 interface MessageBubbleProps {
   message: Message;
   isStreaming?: boolean;
+  isThinking?: boolean;
+  thinkingContent?: string;
   "data-ocid"?: string;
+  onAddChip?: (tagName: string, outerHTML: string) => void;
 }
 
 const codeStyle: React.CSSProperties = {
@@ -77,7 +87,6 @@ function parseInline(text: string): React.ReactNode {
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-// Render list items with content-based keys to satisfy both useJsxKeyInIterable and noArrayIndexKey
 function renderLiNodes(
   items: string[],
   fgStyle: React.CSSProperties,
@@ -158,7 +167,225 @@ function renderTableNode(
   );
 }
 
-function SimpleMarkdown({ content }: { content: string }) {
+function CodeBlockWithActions({
+  language,
+  code,
+  allBlocks,
+  onAddChip,
+}: {
+  language: string;
+  code: string;
+  allBlocks: CodeBlock[];
+  onAddChip?: (tagName: string, outerHTML: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [sandboxOpen, setSandboxOpen] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [code]);
+
+  const fgStyle: React.CSSProperties = { color: "oklch(var(--foreground))" };
+
+  return (
+    <>
+      <div
+        className="rounded-xl overflow-hidden my-3"
+        style={{
+          background: "oklch(0.96 0.02 260)",
+          border: "1px solid oklch(var(--border))",
+        }}
+      >
+        {/* Code block header */}
+        <div
+          className="flex items-center justify-between px-4 py-2"
+          style={{
+            background: "oklch(0.94 0.02 260)",
+            borderBottom: "1px solid oklch(var(--border))",
+          }}
+        >
+          <span
+            className="text-xs font-semibold font-mono"
+            style={{ color: "oklch(var(--brand))" }}
+          >
+            {language || "code"}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-ocid="code.copy.button"
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+              style={{
+                background: copied
+                  ? "oklch(var(--success) / 0.15)"
+                  : "oklch(var(--surface-2))",
+                color: copied
+                  ? "oklch(var(--success))"
+                  : "oklch(var(--muted-foreground))",
+                border: `1px solid ${copied ? "oklch(var(--success) / 0.3)" : "oklch(var(--border))"}`,
+              }}
+            >
+              <Copy className="w-3 h-3" />
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <button
+              type="button"
+              data-ocid="code.sandbox.button"
+              onClick={() => setSandboxOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+              style={{
+                background: "oklch(var(--brand) / 0.1)",
+                color: "oklch(var(--brand))",
+                border: "1px solid oklch(var(--brand) / 0.3)",
+              }}
+            >
+              <Play className="w-3 h-3" />
+              Run
+            </button>
+          </div>
+        </div>
+        <pre
+          className="overflow-x-auto p-4 text-xs"
+          style={{
+            ...fgStyle,
+            fontFamily: "'GeistMono', monospace",
+            lineHeight: 1.7,
+          }}
+        >
+          <code>{code}</code>
+        </pre>
+      </div>
+
+      {sandboxOpen && (
+        <SandboxModal
+          code={code}
+          language={language}
+          allBlocks={allBlocks}
+          onSelectElement={(tagName, outerHTML) => {
+            if (onAddChip) onAddChip(tagName, outerHTML);
+          }}
+          onClose={() => setSandboxOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function ThinkingBlock({
+  content,
+  isActive,
+  durationSecs,
+}: {
+  content: string;
+  isActive: boolean;
+  durationSecs?: number;
+}) {
+  const [expanded, setExpanded] = useState(isActive);
+
+  return (
+    <div
+      className="mb-3 rounded-xl overflow-hidden"
+      style={{
+        border: "1px solid oklch(var(--border))",
+        background: "oklch(var(--surface-2))",
+      }}
+    >
+      <button
+        type="button"
+        data-ocid="message.thinking.toggle"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-2 w-full px-4 py-2.5"
+      >
+        {isActive ? (
+          <span className="flex gap-1">
+            {[0, 1, 2].map((n) => (
+              <span
+                key={n}
+                className="thinking-dot w-1.5 h-1.5 rounded-full"
+                style={{ background: "oklch(var(--brand))" }}
+              />
+            ))}
+          </span>
+        ) : (
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="oklch(var(--muted-foreground))"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        )}
+        <span
+          className="text-xs font-semibold font-display"
+          style={{ color: "oklch(var(--muted-foreground))" }}
+        >
+          {isActive
+            ? "Thinking..."
+            : `Thought${durationSecs ? ` for ${durationSecs}s` : ""}`}
+        </span>
+        <div className="flex-1" />
+        {expanded ? (
+          <ChevronUp
+            className="w-3.5 h-3.5"
+            style={{ color: "oklch(var(--muted-foreground))" }}
+          />
+        ) : (
+          <ChevronDown
+            className="w-3.5 h-3.5"
+            style={{ color: "oklch(var(--muted-foreground))" }}
+          />
+        )}
+      </button>
+      {expanded && (
+        <div
+          className="px-4 pb-3"
+          style={{ borderTop: "1px solid oklch(var(--border))" }}
+        >
+          <div className="thinking-block mt-2">{content || "..."}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoadingIndicator() {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <span
+        className="text-xs font-medium animate-pulse-soft"
+        style={{ color: "oklch(var(--muted-foreground))" }}
+      >
+        Loading
+      </span>
+      <div className="flex gap-1.5 items-center">
+        {[0, 1, 2].map((n) => (
+          <span
+            key={n}
+            className="thinking-dot w-1.5 h-1.5 rounded-full"
+            style={{ background: "oklch(var(--brand) / 0.6)" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SimpleMarkdown({
+  content,
+  onAddChip,
+}: {
+  content: string;
+  onAddChip?: (tagName: string, outerHTML: string) => void;
+}) {
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
   const fgStyle: React.CSSProperties = { color: "oklch(var(--foreground))" };
@@ -176,6 +403,23 @@ function SimpleMarkdown({ content }: { content: string }) {
   };
   let i = 0;
 
+  // First pass: collect all code blocks in this message
+  const allCodeBlocks: CodeBlock[] = [];
+  let tempI = 0;
+  while (tempI < lines.length) {
+    if (lines[tempI].startsWith("```")) {
+      const lang = lines[tempI].slice(3).trim();
+      const codeLines: string[] = [];
+      tempI++;
+      while (tempI < lines.length && !lines[tempI].startsWith("```")) {
+        codeLines.push(lines[tempI]);
+        tempI++;
+      }
+      allCodeBlocks.push({ language: lang, code: codeLines.join("\n") });
+    }
+    tempI++;
+  }
+
   while (i < lines.length) {
     const line = lines[i];
 
@@ -188,27 +432,15 @@ function SimpleMarkdown({ content }: { content: string }) {
         codeLines.push(lines[i]);
         i++;
       }
+      const codeStr = codeLines.join("\n");
       elements.push(
-        <pre
+        <CodeBlockWithActions
           key={elements.length}
-          className="rounded-xl overflow-x-auto my-3 text-xs p-4"
-          style={{
-            background: "oklch(0.11 0.015 240)",
-            border: "1px solid oklch(var(--border))",
-            color: "oklch(0.88 0.02 240)",
-            fontFamily: "'GeistMono', monospace",
-          }}
-        >
-          {lang && (
-            <div
-              className="text-xs mb-2 font-medium"
-              style={{ color: "oklch(var(--brand))" }}
-            >
-              {lang}
-            </div>
-          )}
-          <code>{codeLines.join("\n")}</code>
-        </pre>,
+          language={lang}
+          code={codeStr}
+          allBlocks={allCodeBlocks}
+          onAddChip={onAddChip}
+        />,
       );
       i++;
       continue;
@@ -374,7 +606,10 @@ function SimpleMarkdown({ content }: { content: string }) {
 export default function MessageBubble({
   message,
   isStreaming,
+  isThinking,
+  thinkingContent,
   "data-ocid": ocid,
+  onAddChip,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
@@ -382,13 +617,13 @@ export default function MessageBubble({
     return (
       <div
         data-ocid={ocid}
-        className="flex justify-end mb-3 animate-fade-in-up"
+        className="flex justify-end mb-4 animate-fade-in-up"
       >
         <div
           className="max-w-[85%] sm:max-w-[70%] rounded-2xl rounded-tr-sm px-4 py-3"
           style={{
-            background: "oklch(var(--surface-2))",
-            border: "1px solid oklch(var(--border))",
+            background: "oklch(var(--brand) / 0.1)",
+            border: "1px solid oklch(var(--brand) / 0.2)",
           }}
         >
           <p
@@ -401,7 +636,7 @@ export default function MessageBubble({
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ml-2 shrink-0 mt-0.5"
           style={{
-            background: "oklch(var(--brand) / 0.2)",
+            background: "oklch(var(--brand) / 0.15)",
             color: "oklch(var(--brand))",
           }}
         >
@@ -411,44 +646,77 @@ export default function MessageBubble({
     );
   }
 
-  const showThinking = isStreaming && !message.content;
+  // Loading state: no content yet, first chunk not arrived
+  const showLoading =
+    isStreaming && isThinking && !thinkingContent && !message.content;
 
   return (
-    <div data-ocid={ocid} className="flex gap-2 mb-3 animate-fade-in-up">
+    <div data-ocid={ocid} className="flex gap-2 mb-4 animate-fade-in-up">
       <div
         className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5"
         style={{
-          background: "oklch(var(--brand) / 0.15)",
-          border: "1px solid oklch(var(--brand) / 0.3)",
+          background: "oklch(var(--brand) / 0.12)",
+          border: "1px solid oklch(var(--brand) / 0.25)",
         }}
       >
         <Bot className="w-3.5 h-3.5" style={{ color: "oklch(var(--brand))" }} />
       </div>
-      <div
-        className="flex-1 min-w-0 rounded-2xl rounded-tl-sm px-4 py-3"
-        style={{
-          background: "oklch(var(--surface-1))",
-          border: "1px solid oklch(var(--border))",
-        }}
-      >
-        {showThinking ? (
-          <div className="flex gap-1.5 items-center h-5">
-            {[0, 1, 2].map((n) => (
-              <span
-                key={n}
-                className="thinking-dot w-1.5 h-1.5 rounded-full"
-                style={{ background: "oklch(var(--brand))" }}
-              />
-            ))}
+      <div className="flex-1 min-w-0">
+        {showLoading && (
+          <div
+            className="rounded-2xl rounded-tl-sm px-4 py-3"
+            style={{
+              background: "oklch(var(--surface-1))",
+              border: "1px solid oklch(var(--border))",
+            }}
+          >
+            <LoadingIndicator />
           </div>
-        ) : (
-          <div className="prose-rivelo">
-            <SimpleMarkdown content={message.content} />
-            {isStreaming && (
-              <span
-                className="inline-block w-0.5 h-4 ml-0.5 animate-pulse"
-                style={{ background: "oklch(var(--brand))" }}
+        )}
+
+        {!showLoading && (
+          <div
+            className="rounded-2xl rounded-tl-sm px-4 py-3"
+            style={{
+              background: "oklch(var(--surface-1))",
+              border: "1px solid oklch(var(--border))",
+            }}
+          >
+            {/* Thinking block */}
+            {(thinkingContent || (isThinking && isStreaming)) && (
+              <ThinkingBlock
+                content={thinkingContent || ""}
+                isActive={!!isThinking && !!isStreaming}
               />
+            )}
+
+            {/* Main content */}
+            {message.content ? (
+              <div className="prose-rivelo">
+                <SimpleMarkdown
+                  content={message.content}
+                  onAddChip={onAddChip}
+                />
+                {isStreaming && !isThinking && (
+                  <span
+                    className="inline-block w-0.5 h-4 ml-0.5 animate-pulse"
+                    style={{ background: "oklch(var(--brand))" }}
+                  />
+                )}
+              </div>
+            ) : (
+              isStreaming &&
+              !isThinking && (
+                <div className="flex gap-1.5 items-center h-5">
+                  {[0, 1, 2].map((n) => (
+                    <span
+                      key={n}
+                      className="thinking-dot w-1.5 h-1.5 rounded-full"
+                      style={{ background: "oklch(var(--brand))" }}
+                    />
+                  ))}
+                </div>
+              )
             )}
           </div>
         )}

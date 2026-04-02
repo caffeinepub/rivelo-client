@@ -16,7 +16,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['GeneralSans', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ["'Source Serif 4'", 'Georgia', 'serif'],
+        serif: ["'Source Serif 4'", 'Georgia', 'serif'],
         display: ['BricolageGrotesque', 'system-ui', 'sans-serif'],
         mono: ['GeistMono', 'JetBrains Mono', 'monospace'],
       },
@@ -93,9 +94,10 @@ export default {
         "2xl": "calc(var(--radius) + 8px)",
       },
       boxShadow: {
-        xs: "0 1px 2px 0 rgba(0,0,0,0.3)",
-        panel: "0 2px 12px rgba(0,0,0,0.4)",
-        brand: "0 0 20px oklch(0.72 0.16 192 / 0.25)",
+        xs: "0 1px 2px 0 rgba(0,0,0,0.06)",
+        panel: "0 2px 12px rgba(0,0,0,0.08)",
+        brand: "0 0 20px oklch(0.52 0.22 260 / 0.2)",
+        card: "0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
       },
       keyframes: {
         "accordion-down": {
